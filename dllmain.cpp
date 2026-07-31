@@ -5,8 +5,6 @@
 
 
 
-
-
 BOOL __declspec(dllexport) DllMain(HMODULE hModule,
 	DWORD  ul_reason_for_call,
 	LPVOID lpReserved
@@ -15,7 +13,7 @@ BOOL __declspec(dllexport) DllMain(HMODULE hModule,
 	switch (ul_reason_for_call)
 	{
 	case DLL_PROCESS_ATTACH:
-		MessageBoxA(NULL, "test", "titletest232131", 0);
+		MessageBoxA(NULL, "subscribe to tech69 youtube channel", "title bar", 0);
 		break;
 
 	case DLL_THREAD_ATTACH:
@@ -213,15 +211,19 @@ extern "C" void __declspec(dllexport) test() {
 			 for (int i = 0;i < (blocksize - 8) / 2;i++) {
 
 				 WORD* entry = (WORD*)((char*)baserelocation + 8 + i * 2);
-				 WORD entryvalue = (*entry) & 0x0FFF;
-				 auto relocrva = pagerva + entryvalue;
+				 // 64 bit
+				 if ((*entry & 0xF000) == 0xA000) {
+					 WORD entryvalue = (*entry) & 0x0FFF;
+					 auto relocrva = pagerva + entryvalue;
 
-				 ULONGLONG oldaddress = *(ULONGLONG*)relocrva;
-				 ULONGLONG newaddress = oldaddress + delta;
+					 ULONGLONG oldaddress = *(ULONGLONG*)relocrva;
+					 ULONGLONG newaddress = oldaddress + delta;
 
-				 // writing new address
-				 *(ULONGLONG*)relocrva = newaddress;
+					 // writing new address
+					 *(ULONGLONG*)relocrva = newaddress;
 
+				 }
+				 
 
 			 }
 
