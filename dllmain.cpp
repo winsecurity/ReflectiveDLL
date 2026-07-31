@@ -3,6 +3,10 @@
 #include <Windows.h>
 #include <iostream>
 
+__forceinline ULONGLONG exportforwarderresolver(const char* forwarder);
+__forceinline ULONGLONG getdllexportfunctionaddress(ULONGLONG dllbase,
+	const char* functionname);
+
 
 
 BOOL __declspec(dllexport) DllMain(HMODULE hModule,
@@ -207,8 +211,8 @@ __forceinline ULONGLONG getdllexportfunctionaddress(ULONGLONG dllbase,
 				funcrva < ((ULONGLONG)optionalheader->DataDirectory[0].VirtualAddress + optionalheader->DataDirectory[0].Size)) {
 				// funcaddress is forwarder
 				// eg: kernelbase.testfunction
-
-				char dllnametofind[128]{ 0 }, functionnametofind[128]{ 0 };
+				
+				/*char dllnametofind[128]{0}, functionnametofind[128]{0};
 				char *dllnametofindptr = &dllnametofind[0], 
 					*functionnametofindptr = &functionnametofind[0];
 
@@ -248,8 +252,11 @@ __forceinline ULONGLONG getdllexportfunctionaddress(ULONGLONG dllbase,
 					return getdllexportfunctionaddress(forwarderdllbase,
 						&functionnametofind[0]);
 
-				}
-				return 0;
+				}*/
+
+				return exportforwarderresolver((const char*)funcaddress);
+
+				//return 0;
 			}
 
 			return funcaddress;
@@ -262,6 +269,55 @@ __forceinline ULONGLONG getdllexportfunctionaddress(ULONGLONG dllbase,
 		//std::cout << "Funcaddress: " << funcaddress << std::endl;
 
 	}
+	return 0;
+}
+
+
+
+
+__forceinline ULONGLONG exportforwarderresolver(const char* forwarder) {
+
+	// forwarder points to NTDLL.RtlUserExitThread for example
+	char dllnametofind[128]{ 0 }, functionnametofind[128]{ 0 };
+	char* dllnametofindptr = &dllnametofind[0],
+		* functionnametofindptr = &functionnametofind[0];
+
+	char* funcaddressptr = (char*)forwarder;
+	while (true) {
+
+		if (*funcaddressptr == '.') {
+			break;
+		}
+
+		*dllnametofindptr = *funcaddressptr;
+
+		dllnametofindptr++;
+		funcaddressptr++;
+	}
+	funcaddressptr++;
+	*dllnametofindptr = '.'; dllnametofindptr++;
+	*dllnametofindptr = 'd'; dllnametofindptr++;
+	*dllnametofindptr = 'l'; dllnametofindptr++;
+	*dllnametofindptr = 'l'; dllnametofindptr++;
+
+
+	while (true) {
+
+		if (*funcaddressptr == 0) {
+			break;
+		}
+
+		*functionnametofindptr = *funcaddressptr;
+
+		functionnametofindptr++;
+		funcaddressptr++;
+	}
+
+	auto forwardedbase = getdllbase(&dllnametofind[0]);
+	if (forwardedbase) {
+		return getdllexportfunctionaddress(forwardedbase, &functionnametofind[0]);
+	}
+
 	return 0;
 }
 
@@ -293,7 +349,7 @@ extern "C" void __declspec(dllexport) test() {
 	//((void(*)(int))exitthreadaddress)(0);
 
 	if (!loadlibraryaddress || !getprocaddressaddress
-		|| !virtualallocaddress || !virtualprotectaddress) {
+		|| !virtualallocaddress || !virtualprotectaddress || !exitthreadaddress) {
 		return;
 	}
 
