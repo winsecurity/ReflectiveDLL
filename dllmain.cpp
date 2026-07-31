@@ -28,6 +28,100 @@ BOOL __declspec(dllexport) DllMain(HMODULE hModule,
 }
 
 
+
+/*__forceinline bool mystrcmp(const char* char1ptr, const char* char2ptr) {
+
+	while (*char1ptr && *char2ptr) {
+
+		char char1 = *char1ptr;
+		char char2 = *char2ptr;
+
+		// converting to lowercase if char is uppercase
+		if (char1 >= 'A' && char1 <= 'Z') {
+			char1 += 32;
+		}
+
+		if (char2 >= 'A' && char2 <= 'Z') {
+			char2 += 32;
+		}
+
+
+		if (char1 != char2) {
+			return false;
+		}
+
+		char1ptr++; char2ptr++;
+
+	}
+
+	return true;
+
+}
+
+__forceinline bool mystrcmp(const char* char1ptr, const wchar_t* char2ptr) {
+
+	while (*char1ptr && *char2ptr) {
+
+		char char1 = *char1ptr;
+		char char2 = *char2ptr;
+
+		// converting to lowercase if char is uppercase
+		if (char1 >= 'A' && char1 <= 'Z') {
+			char1 += 32;
+		}
+
+		if (char2 >= 'A' && char2 <= 'Z') {
+			char2 += 32;
+		}
+
+
+		if (char1 != char2) {
+			return false;
+		}
+
+		char1ptr++; char2ptr++;
+
+	}
+
+	return true;
+
+}
+*/
+
+
+template<typename T, typename U>
+__forceinline bool mystrcmp(const T* char1ptr, const U* char2ptr) {
+
+	while (*char1ptr && *char2ptr) {
+
+		char char1 = *char1ptr;
+		char char2 = *char2ptr;
+
+		// converting to lowercase if char is uppercase
+		if (char1 >= 'A' && char1 <= 'Z') {
+			char1 += 32;
+		}
+
+		if (char2 >= 'A' && char2 <= 'Z') {
+			char2 += 32;
+		}
+
+
+		if (char1 != char2) {
+			return false;
+		}
+
+		char1ptr++; char2ptr++;
+
+	}
+
+	return true;
+
+}
+
+
+
+
 __forceinline ULONGLONG getdllbase(const char* dll) {
 	auto ppeb = __readgsqword(0x60);
 	// ldr address
@@ -43,29 +137,8 @@ __forceinline ULONGLONG getdllbase(const char* dll) {
 		bool isourdll = true;
 		wchar_t* namebufptr = (wchar_t*)namebuf;
 		const char* dllptr = dll;
-		while (*dllptr && *namebufptr) {
-
-			//if (*namebufptr == 0 ) {
-			//	break;
-			//}
-
-			// converting chars to lowercase
-			char char1 = *namebufptr;
-			char char2 = *dllptr;
-			if (char1 >= 'A' && char1 <= 'Z')
-				char1 += 'a' - 'A';
-
-			if (char2 >= 'A' && char2 <= 'Z')
-				char2 += 'a' - 'A';
-
-			if (char1 != char2) {
-				isourdll = false;
-				break;
-			}
-
-			namebufptr++;
-			dllptr++;
-
+		if (!mystrcmp<wchar_t,char>(namebufptr, dllptr	)) {
+			isourdll = false;
 		}
 
 		if (isourdll) {
