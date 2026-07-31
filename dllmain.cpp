@@ -13,7 +13,7 @@ BOOL __declspec(dllexport) DllMain(HMODULE hModule,
 	switch (ul_reason_for_call)
 	{
 	case DLL_PROCESS_ATTACH:
-		MessageBoxA(NULL, "test", "titletest", 0);
+		MessageBoxA(NULL, "test", "titletest232131", 0);
 		break;
 
 	case DLL_THREAD_ATTACH:
@@ -35,6 +35,7 @@ extern "C" void __declspec(dllexport) test() {
 	 ULONGLONG getprocaddressaddress = 0;
 	 ULONGLONG virtualallocaddress = 0;
 	 ULONGLONG ourdllbase = 0;
+	 ULONGLONG virtualprotectaddress = 0;
 	 auto ppeb = __readgsqword(0x60);
 	 // ldr address
 	 ULONGLONG ldr = *(ULONGLONG*)((char*)ppeb + 0x18);
@@ -106,6 +107,19 @@ extern "C" void __declspec(dllexport) test() {
 				 }
 
 
+				 if (funcnameptr[0] == 'V' && funcnameptr[1] == 'i' &&
+					 funcnameptr[2] == 'r' && funcnameptr[3] == 't' &&
+					 funcnameptr[4] == 'u' && funcnameptr[5] == 'a' && funcnameptr[6] == 'l' &&
+					 funcnameptr[7] == 'P' && funcnameptr[8] == 'r' && funcnameptr[9] == 'o' &&
+					 funcnameptr[10] == 't' && funcnameptr[11] == 'e' && funcnameptr[12] == 'c'
+					 && funcnameptr[13] == 't'
+					 && funcnameptr[14] == 0) {
+
+
+					 virtualprotectaddress = funcaddress;
+				 }
+
+
 				 //std::cout << "functionname: " << (char*)dllbase + namerva << std::endl;
 
 				 //std::cout << "Funcaddress: " << funcaddress << std::endl;
@@ -171,7 +185,7 @@ extern "C" void __declspec(dllexport) test() {
 				 *(char*)((char*)ourdllbase + rawdata + j);
 		 }
 
-
+		
 		 sectionheader++;
 	 }
 
@@ -258,7 +272,90 @@ extern "C" void __declspec(dllexport) test() {
 	 }
 
 
+	 // resetting sectionheaderptr
+	 sectionheader = (IMAGE_SECTION_HEADER*)
+		 ((char*)ourdllbase +
+			 dosheader->e_lfanew + 4 +
+			 sizeof(IMAGE_FILE_HEADER) + fileheader->SizeOfOptionalHeader);
 
+	 for (int i = 0;i < fileheader->NumberOfSections;i++) {
+
+		 auto characteristics = sectionheader->Characteristics;
+		 DWORD oldprotect = 0;
+		 auto sectionva = sectionheader->VirtualAddress;
+
+		 if (((characteristics & IMAGE_SCN_MEM_READ) == IMAGE_SCN_MEM_READ) &&
+			 ((characteristics & IMAGE_SCN_MEM_EXECUTE) == IMAGE_SCN_MEM_EXECUTE) &&
+			 ((characteristics & IMAGE_SCN_MEM_WRITE) == IMAGE_SCN_MEM_WRITE)) {
+			 //RWX
+
+			 ((bool (*)(LPVOID, SIZE_T, DWORD, PDWORD))(virtualprotectaddress))(
+				 (char*)baseaddress + sectionva, sectionheader->Misc.VirtualSize, PAGE_EXECUTE_READWRITE, &oldprotect);
+
+		 }
+
+
+		 else if (((characteristics & IMAGE_SCN_MEM_READ) == IMAGE_SCN_MEM_READ) &&
+			 ((characteristics & IMAGE_SCN_MEM_WRITE) == IMAGE_SCN_MEM_WRITE)) {
+			 // RW
+
+			 ((bool (*)(LPVOID, SIZE_T, DWORD, PDWORD))(virtualprotectaddress))(
+				 (char*)baseaddress + sectionva, sectionheader->Misc.VirtualSize, PAGE_READWRITE, &oldprotect);
+
+		 }
+
+		 else if (((characteristics & IMAGE_SCN_MEM_READ) == IMAGE_SCN_MEM_READ) &&
+			 ((characteristics & IMAGE_SCN_MEM_EXECUTE) == IMAGE_SCN_MEM_EXECUTE)) {
+			 // RX
+
+			 ((bool (*)(LPVOID, SIZE_T, DWORD, PDWORD))(virtualprotectaddress))(
+				 (char*)baseaddress + sectionva, sectionheader->Misc.VirtualSize, PAGE_EXECUTE_READ, &oldprotect);
+
+		 }
+		 else if (((characteristics & IMAGE_SCN_MEM_WRITE) == IMAGE_SCN_MEM_WRITE) &&
+			 ((characteristics & IMAGE_SCN_MEM_EXECUTE) == IMAGE_SCN_MEM_EXECUTE)) {
+			 // WX
+
+			 ((bool (*)(LPVOID, SIZE_T, DWORD, PDWORD))(virtualprotectaddress))(
+				 (char*)baseaddress + sectionva, sectionheader->Misc.VirtualSize, PAGE_EXECUTE_READWRITE, &oldprotect);
+
+		 }
+
+
+		 else if (((characteristics & IMAGE_SCN_MEM_READ) == IMAGE_SCN_MEM_READ)) {
+			 //R
+
+			 ((bool (*)(LPVOID, SIZE_T, DWORD, PDWORD))(virtualprotectaddress))(
+				 (char*)baseaddress + sectionva, sectionheader->Misc.VirtualSize, PAGE_READONLY, &oldprotect);
+
+		 }
+
+		 else if (((characteristics & IMAGE_SCN_MEM_EXECUTE) == IMAGE_SCN_MEM_EXECUTE)) {
+			 // X
+
+			 ((bool (*)(LPVOID, SIZE_T, DWORD, PDWORD))(virtualprotectaddress))(
+				 (char*)baseaddress + sectionva, sectionheader->Misc.VirtualSize, PAGE_EXECUTE, &oldprotect);
+
+		 }
+
+
+		 else if (((characteristics & IMAGE_SCN_MEM_WRITE) == IMAGE_SCN_MEM_WRITE)) {
+			 // W
+
+			 ((bool (*)(LPVOID, SIZE_T, DWORD, PDWORD))(virtualprotectaddress))(
+				 (char*)baseaddress + sectionva, sectionheader->Misc.VirtualSize, PAGE_READWRITE, &oldprotect);
+
+		 }
+		 else {
+
+			 ((bool (*)(LPVOID, SIZE_T, DWORD, PDWORD))(virtualprotectaddress))(
+				 (char*)baseaddress + sectionva, sectionheader->Misc.VirtualSize, PAGE_NOACCESS, &oldprotect);
+
+		 }
+
+
+		 sectionheader++;
+	 }
 	 
 
 	 //((void(*)())((char*)baseaddress + optionalheader->AddressOfEntryPoint))();
