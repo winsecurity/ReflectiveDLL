@@ -43,13 +43,22 @@ __forceinline ULONGLONG getdllbase(const char* dll) {
 		bool isourdll = true;
 		wchar_t* namebufptr = (wchar_t*)namebuf;
 		const char* dllptr = dll;
-		while (*dllptr ) {
+		while (*dllptr && *namebufptr) {
 
-			if (*namebufptr == 0 ) {
-				break;
-			}
-			
-			if (*namebufptr != *dllptr) {
+			//if (*namebufptr == 0 ) {
+			//	break;
+			//}
+
+			// converting chars to lowercase
+			char char1 = *namebufptr;
+			char char2 = *dllptr;
+			if (char1 >= 'A' && char1 <= 'Z')
+				char1 += 'a' - 'A';
+
+			if (char2 >= 'A' && char2 <= 'Z')
+				char2 += 'a' - 'A';
+
+			if (char1 != char2) {
 				isourdll = false;
 				break;
 			}
@@ -95,16 +104,23 @@ __forceinline ULONGLONG getdllexportfunctionaddress(ULONGLONG dllbase,
 		const char* functionnameptr = functionname;
 
 		bool isourfunction = true;
-		while (*functionnameptr) {
+		while (*funcnameptr && *functionnameptr) {
 
-			if (*funcnameptr == 0) {
-				break;
-			}
 
-			if (*funcnameptr != *functionnameptr) {
+			// converting chars to lowercase
+			char char1 = *funcnameptr;
+			char char2 = *functionnameptr;
+			if (char1 >= 'A' && char1 <= 'Z')
+				char1 += 32;
+
+			if (char2 >= 'A' && char2 <= 'Z')
+				char2 += 32;
+
+			if (char1 != char2) {
 				isourfunction = false;
 				break;
 			}
+			
 			funcnameptr++;
 			functionnameptr++;
 
@@ -112,6 +128,57 @@ __forceinline ULONGLONG getdllexportfunctionaddress(ULONGLONG dllbase,
 		}
 
 		if (isourfunction) {
+
+
+			if (funcrva >= optionalheader->DataDirectory[0].VirtualAddress &&
+				funcrva < ((ULONGLONG)optionalheader->DataDirectory[0].VirtualAddress + optionalheader->DataDirectory[0].Size)) {
+				// funcaddress is forwarder
+				// eg: kernelbase.testfunction
+
+				char dllnametofind[128]{ 0 }, functionnametofind[128]{ 0 };
+				char *dllnametofindptr = &dllnametofind[0], 
+					*functionnametofindptr = &functionnametofind[0];
+
+				char* funcaddressptr = (char*)funcaddress;
+				while (true) {
+
+					if (*funcaddressptr == '.') {
+						break;
+					}
+
+					*dllnametofindptr = *funcaddressptr;
+
+					dllnametofindptr++;
+					funcaddressptr++;
+				}
+				funcaddressptr++;
+				*dllnametofindptr = '.'; dllnametofindptr++;
+				*dllnametofindptr = 'd'; dllnametofindptr++;
+				*dllnametofindptr = 'l'; dllnametofindptr++;
+				*dllnametofindptr = 'l'; dllnametofindptr++;
+
+
+				while (true) {
+
+					if (*funcaddressptr == 0) {
+						break;
+					}
+
+					*functionnametofindptr = *funcaddressptr;
+
+					functionnametofindptr++;
+					funcaddressptr++;
+				}
+
+				ULONGLONG forwarderdllbase = getdllbase(&dllnametofind[0]);
+				if (forwarderdllbase) {
+					return getdllexportfunctionaddress(forwarderdllbase,
+						&functionnametofind[0]);
+
+				}
+				return 0;
+			}
+
 			return funcaddress;
 		}
 		
@@ -133,22 +200,31 @@ extern "C" void __declspec(dllexport) test() {
 	ULONGLONG virtualallocaddress = 0;
 	ULONGLONG ourdllbase = 0;
 	ULONGLONG virtualprotectaddress = 0;
+	ULONGLONG exitthreadaddress = 0;
 	char dll1[] = { 'K','E','R','N','E','L','3','2','.','D','L','L',0 };
-	char func1[] = { 'L','o','a','d','L','i','b','r','a','r','y','A',0 };
+	char func1[] = { 'L','O','A','d','L','i','b','r','a','r','y','A',0 };
 	char func2[] = { 'V','i','r','t','u','a','l','A','l','l','o','c',0 };
 	char func3[] = { 'G','e','t','P','r','o','c','A','d','d','r','e','s','s',0 };
 	char func4[] = { 'V','i','r','t','u','a','l','P','r','o','t','e','c','t',0 };
+	char func5[] = { 'E','x','i','t','T','h','r','e','a','d',0};
 	ourdllbase = getdllbase(&dll1[0]);
+	
 	if (ourdllbase) {
 		loadlibraryaddress = getdllexportfunctionaddress(ourdllbase, &func1[0]);
 		getprocaddressaddress = getdllexportfunctionaddress(ourdllbase, &func3[0]);
 		virtualallocaddress = getdllexportfunctionaddress(ourdllbase, &func2[0]);
 		virtualprotectaddress = getdllexportfunctionaddress(ourdllbase, &func4[0]);
+		exitthreadaddress = getdllexportfunctionaddress(ourdllbase, &func5[0]);
 	}
 
-	if (!loadlibraryaddress || !getprocaddressaddress || !virtualallocaddress || !virtualprotectaddress) {
+	//((void(*)(int))exitthreadaddress)(0);
+
+	if (!loadlibraryaddress || !getprocaddressaddress
+		|| !virtualallocaddress || !virtualprotectaddress) {
 		return;
 	}
+
+
 	 
 	 /*auto ppeb = __readgsqword(0x60);
 	 // ldr address
