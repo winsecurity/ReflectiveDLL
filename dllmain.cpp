@@ -181,79 +181,20 @@ __forceinline ULONGLONG getdllexportfunctionaddress(ULONGLONG dllbase,
 		const char* functionnameptr = functionname;
 
 		bool isourfunction = true;
-		while (*funcnameptr && *functionnameptr) {
-
-
-			// converting chars to lowercase
-			char char1 = *funcnameptr;
-			char char2 = *functionnameptr;
-			if (char1 >= 'A' && char1 <= 'Z')
-				char1 += 32;
-
-			if (char2 >= 'A' && char2 <= 'Z')
-				char2 += 32;
-
-			if (char1 != char2) {
-				isourfunction = false;
-				break;
-			}
-			
-			funcnameptr++;
-			functionnameptr++;
-
-
+		
+		if (!mystrcmp(funcnameptr, functionnameptr)) {
+			isourfunction = false;
 		}
 
 		if (isourfunction) {
 
-
+			// if our function has forwarder
 			if (funcrva >= optionalheader->DataDirectory[0].VirtualAddress &&
 				funcrva < ((ULONGLONG)optionalheader->DataDirectory[0].VirtualAddress + optionalheader->DataDirectory[0].Size)) {
 				// funcaddress is forwarder
 				// eg: kernelbase.testfunction
 				
-				/*char dllnametofind[128]{0}, functionnametofind[128]{0};
-				char *dllnametofindptr = &dllnametofind[0], 
-					*functionnametofindptr = &functionnametofind[0];
-
-				char* funcaddressptr = (char*)funcaddress;
-				while (true) {
-
-					if (*funcaddressptr == '.') {
-						break;
-					}
-
-					*dllnametofindptr = *funcaddressptr;
-
-					dllnametofindptr++;
-					funcaddressptr++;
-				}
-				funcaddressptr++;
-				*dllnametofindptr = '.'; dllnametofindptr++;
-				*dllnametofindptr = 'd'; dllnametofindptr++;
-				*dllnametofindptr = 'l'; dllnametofindptr++;
-				*dllnametofindptr = 'l'; dllnametofindptr++;
-
-
-				while (true) {
-
-					if (*funcaddressptr == 0) {
-						break;
-					}
-
-					*functionnametofindptr = *funcaddressptr;
-
-					functionnametofindptr++;
-					funcaddressptr++;
-				}
-
-				ULONGLONG forwarderdllbase = getdllbase(&dllnametofind[0]);
-				if (forwarderdllbase) {
-					return getdllexportfunctionaddress(forwarderdllbase,
-						&functionnametofind[0]);
-
-				}*/
-
+				
 				return exportforwarderresolver((const char*)funcaddress);
 
 				//return 0;
