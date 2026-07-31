@@ -28,15 +28,129 @@ BOOL __declspec(dllexport) DllMain(HMODULE hModule,
 }
 
 
+__forceinline ULONGLONG getdllbase(const char* dll) {
+	auto ppeb = __readgsqword(0x60);
+	// ldr address
+	ULONGLONG ldr = *(ULONGLONG*)((char*)ppeb + 0x18);
+	// ldr+0x10 inloadordermodulelist
+	ULONGLONG firstldrdatatableentry = *(ULONGLONG*)((char*)ldr + 0x10);
+
+	while (firstldrdatatableentry != ldr + 0x10) {
+		// ldrdatatableentry+0x58 basedllname UNICODE_STRING, 
+		ULONGLONG namebuf = *(ULONGLONG*)((char*)firstldrdatatableentry + 0x58 + 0x8);
+		//std::wcout << std::hex << "dllname: " << (wchar_t*)namebuf << std::endl;
+		
+		bool isourdll = true;
+		wchar_t* namebufptr = (wchar_t*)namebuf;
+		const char* dllptr = dll;
+		while (*dllptr ) {
+
+			if (*namebufptr == 0 ) {
+				break;
+			}
+			
+			if (*namebufptr != *dllptr) {
+				isourdll = false;
+				break;
+			}
+
+			namebufptr++;
+			dllptr++;
+
+		}
+
+		if (isourdll) {
+			return *(ULONGLONG*)(firstldrdatatableentry + 0x30);
+		}
+
+		firstldrdatatableentry = *(ULONGLONG*)(firstldrdatatableentry);
+
+	}
+
+	return 0;
+}
+
+
+
+__forceinline ULONGLONG getdllexportfunctionaddress(ULONGLONG dllbase,
+	const char* functionname) {
+	
+	IMAGE_DOS_HEADER* dosheader = (IMAGE_DOS_HEADER*)dllbase;
+	IMAGE_FILE_HEADER* fileheader = (IMAGE_FILE_HEADER*)((char*)dllbase + dosheader->e_lfanew + 4);
+	IMAGE_OPTIONAL_HEADER64* optionalheader = (IMAGE_OPTIONAL_HEADER64*)((char*)dllbase + dosheader->e_lfanew + 4 + sizeof(IMAGE_FILE_HEADER));
+	IMAGE_EXPORT_DIRECTORY* exportdirectory = (IMAGE_EXPORT_DIRECTORY*)((char*)dllbase + optionalheader->DataDirectory[0].VirtualAddress);
+
+
+	auto entptr = (char*)dllbase + exportdirectory->AddressOfNames;
+	auto eotptr = (char*)dllbase + exportdirectory->AddressOfNameOrdinals;
+	auto eatptr = (char*)dllbase + exportdirectory->AddressOfFunctions;
+
+	for (int i = 0;i < exportdirectory->NumberOfNames;i++) {
+		ULONG namerva = *(ULONG*)((char*)entptr + i * 4);
+		SHORT ordinal = *(SHORT*)((char*)eotptr + i * 2);
+		ULONG funcrva = *(ULONG*)((char*)eatptr + ordinal * 4);
+
+		ULONGLONG funcaddress = dllbase + funcrva;
+		char* funcnameptr = (char*)dllbase + namerva;
+		const char* functionnameptr = functionname;
+
+		bool isourfunction = true;
+		while (*functionnameptr) {
+
+			if (*funcnameptr == 0) {
+				break;
+			}
+
+			if (*funcnameptr != *functionnameptr) {
+				isourfunction = false;
+				break;
+			}
+			funcnameptr++;
+			functionnameptr++;
+
+
+		}
+
+		if (isourfunction) {
+			return funcaddress;
+		}
+		
+
+
+		//std::cout << "functionname: " << (char*)dllbase + namerva << std::endl;
+
+		//std::cout << "Funcaddress: " << funcaddress << std::endl;
+
+	}
+	return 0;
+}
+
 
 extern "C" void __declspec(dllexport) test() {
 
-	 ULONGLONG loadlibraryaddress = 0;
-	 ULONGLONG getprocaddressaddress = 0;
-	 ULONGLONG virtualallocaddress = 0;
-	 ULONGLONG ourdllbase = 0;
-	 ULONGLONG virtualprotectaddress = 0;
-	 auto ppeb = __readgsqword(0x60);
+	ULONGLONG loadlibraryaddress = 0;
+	ULONGLONG getprocaddressaddress = 0;
+	ULONGLONG virtualallocaddress = 0;
+	ULONGLONG ourdllbase = 0;
+	ULONGLONG virtualprotectaddress = 0;
+	char dll1[] = { 'K','E','R','N','E','L','3','2','.','D','L','L',0 };
+	char func1[] = { 'L','o','a','d','L','i','b','r','a','r','y','A',0 };
+	char func2[] = { 'V','i','r','t','u','a','l','A','l','l','o','c',0 };
+	char func3[] = { 'G','e','t','P','r','o','c','A','d','d','r','e','s','s',0 };
+	char func4[] = { 'V','i','r','t','u','a','l','P','r','o','t','e','c','t',0 };
+	ourdllbase = getdllbase(&dll1[0]);
+	if (ourdllbase) {
+		loadlibraryaddress = getdllexportfunctionaddress(ourdllbase, &func1[0]);
+		getprocaddressaddress = getdllexportfunctionaddress(ourdllbase, &func3[0]);
+		virtualallocaddress = getdllexportfunctionaddress(ourdllbase, &func2[0]);
+		virtualprotectaddress = getdllexportfunctionaddress(ourdllbase, &func4[0]);
+	}
+
+	if (!loadlibraryaddress || !getprocaddressaddress || !virtualallocaddress || !virtualprotectaddress) {
+		return;
+	}
+	 
+	 /*auto ppeb = __readgsqword(0x60);
 	 // ldr address
 	 ULONGLONG ldr = *(ULONGLONG*)((char*)ppeb + 0x18);
 	 // ldr+0x10 inloadordermodulelist
@@ -133,7 +247,7 @@ extern "C" void __declspec(dllexport) test() {
 		 firstldrdatatableentry = *(ULONGLONG*)(firstldrdatatableentry);
 
 	 }
-
+	 */
 
 	 auto mainaddr = (char*)&DllMain;
 	 while (true) {
