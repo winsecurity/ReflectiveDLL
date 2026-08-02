@@ -28,6 +28,8 @@ __forceinline size_t mystrlen(const T* char1ptr) {
 template<typename T, typename U>
 __forceinline bool mystrcmp(const T* char1ptr, const U* char2ptr) {
 
+	if (char1ptr == NULL || char2ptr == NULL) { return false; }
+
 	while (*char1ptr && *char2ptr) {
 
 		char char1 = *char1ptr;
@@ -51,10 +53,9 @@ __forceinline bool mystrcmp(const T* char1ptr, const U* char2ptr) {
 
 	}
 
-	return true;
+	return (*char1ptr == 0 && *char2ptr == 0);
 
 }
-
 
 
 
