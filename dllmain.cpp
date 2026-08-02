@@ -2,10 +2,8 @@
 #include "pch.h"
 #include <Windows.h>
 #include <iostream>
+#include "helpers.h"
 
-__forceinline ULONGLONG exportforwarderresolver(const char* forwarder);
-__forceinline ULONGLONG getdllexportfunctionaddress(ULONGLONG dllbase,
-	const char* functionname);
 
 
 
@@ -17,6 +15,7 @@ BOOL __declspec(dllexport) DllMain(HMODULE hModule,
 	switch (ul_reason_for_call)
 	{
 	case DLL_PROCESS_ATTACH:
+		MessageBoxA(NULL, "subscribe to tech69 youtube channel", "title bar", 0);
 		MessageBoxA(NULL, "subscribe to tech69 youtube channel", "title bar", 0);
 		break;
 
@@ -32,237 +31,6 @@ BOOL __declspec(dllexport) DllMain(HMODULE hModule,
 }
 
 
-
-/*__forceinline bool mystrcmp(const char* char1ptr, const char* char2ptr) {
-
-	while (*char1ptr && *char2ptr) {
-
-		char char1 = *char1ptr;
-		char char2 = *char2ptr;
-
-		// converting to lowercase if char is uppercase
-		if (char1 >= 'A' && char1 <= 'Z') {
-			char1 += 32;
-		}
-
-		if (char2 >= 'A' && char2 <= 'Z') {
-			char2 += 32;
-		}
-
-
-		if (char1 != char2) {
-			return false;
-		}
-
-		char1ptr++; char2ptr++;
-
-	}
-
-	return true;
-
-}
-
-__forceinline bool mystrcmp(const char* char1ptr, const wchar_t* char2ptr) {
-
-	while (*char1ptr && *char2ptr) {
-
-		char char1 = *char1ptr;
-		char char2 = *char2ptr;
-
-		// converting to lowercase if char is uppercase
-		if (char1 >= 'A' && char1 <= 'Z') {
-			char1 += 32;
-		}
-
-		if (char2 >= 'A' && char2 <= 'Z') {
-			char2 += 32;
-		}
-
-
-		if (char1 != char2) {
-			return false;
-		}
-
-		char1ptr++; char2ptr++;
-
-	}
-
-	return true;
-
-}
-*/
-
-
-template<typename T, typename U>
-__forceinline bool mystrcmp(const T* char1ptr, const U* char2ptr) {
-
-	while (*char1ptr && *char2ptr) {
-
-		char char1 = *char1ptr;
-		char char2 = *char2ptr;
-
-		// converting to lowercase if char is uppercase
-		if (char1 >= 'A' && char1 <= 'Z') {
-			char1 += 32;
-		}
-
-		if (char2 >= 'A' && char2 <= 'Z') {
-			char2 += 32;
-		}
-
-
-		if (char1 != char2) {
-			return false;
-		}
-
-		char1ptr++; char2ptr++;
-
-	}
-
-	return true;
-
-}
-
-
-
-
-__forceinline ULONGLONG getdllbase(const char* dll) {
-	auto ppeb = __readgsqword(0x60);
-	// ldr address
-	ULONGLONG ldr = *(ULONGLONG*)((char*)ppeb + 0x18);
-	// ldr+0x10 inloadordermodulelist
-	ULONGLONG firstldrdatatableentry = *(ULONGLONG*)((char*)ldr + 0x10);
-
-	while (firstldrdatatableentry != ldr + 0x10) {
-		// ldrdatatableentry+0x58 basedllname UNICODE_STRING, 
-		ULONGLONG namebuf = *(ULONGLONG*)((char*)firstldrdatatableentry + 0x58 + 0x8);
-		//std::wcout << std::hex << "dllname: " << (wchar_t*)namebuf << std::endl;
-		
-		bool isourdll = true;
-		wchar_t* namebufptr = (wchar_t*)namebuf;
-		const char* dllptr = dll;
-		if (!mystrcmp<wchar_t,char>(namebufptr, dllptr	)) {
-			isourdll = false;
-		}
-
-		if (isourdll) {
-			return *(ULONGLONG*)(firstldrdatatableentry + 0x30);
-		}
-
-		firstldrdatatableentry = *(ULONGLONG*)(firstldrdatatableentry);
-
-	}
-
-	return 0;
-}
-
-
-
-__forceinline ULONGLONG getdllexportfunctionaddress(ULONGLONG dllbase,
-	const char* functionname) {
-	
-	IMAGE_DOS_HEADER* dosheader = (IMAGE_DOS_HEADER*)dllbase;
-	IMAGE_FILE_HEADER* fileheader = (IMAGE_FILE_HEADER*)((char*)dllbase + dosheader->e_lfanew + 4);
-	IMAGE_OPTIONAL_HEADER64* optionalheader = (IMAGE_OPTIONAL_HEADER64*)((char*)dllbase + dosheader->e_lfanew + 4 + sizeof(IMAGE_FILE_HEADER));
-	IMAGE_EXPORT_DIRECTORY* exportdirectory = (IMAGE_EXPORT_DIRECTORY*)((char*)dllbase + optionalheader->DataDirectory[0].VirtualAddress);
-
-
-	auto entptr = (char*)dllbase + exportdirectory->AddressOfNames;
-	auto eotptr = (char*)dllbase + exportdirectory->AddressOfNameOrdinals;
-	auto eatptr = (char*)dllbase + exportdirectory->AddressOfFunctions;
-
-	for (int i = 0;i < exportdirectory->NumberOfNames;i++) {
-		ULONG namerva = *(ULONG*)((char*)entptr + i * 4);
-		SHORT ordinal = *(SHORT*)((char*)eotptr + i * 2);
-		ULONG funcrva = *(ULONG*)((char*)eatptr + ordinal * 4);
-
-		ULONGLONG funcaddress = dllbase + funcrva;
-		char* funcnameptr = (char*)dllbase + namerva;
-		const char* functionnameptr = functionname;
-
-		bool isourfunction = true;
-		
-		if (!mystrcmp(funcnameptr, functionnameptr)) {
-			isourfunction = false;
-		}
-
-		if (isourfunction) {
-
-			// if our function has forwarder
-			if (funcrva >= optionalheader->DataDirectory[0].VirtualAddress &&
-				funcrva < ((ULONGLONG)optionalheader->DataDirectory[0].VirtualAddress + optionalheader->DataDirectory[0].Size)) {
-				// funcaddress is forwarder
-				// eg: kernelbase.testfunction
-				
-				
-				return exportforwarderresolver((const char*)funcaddress);
-
-				//return 0;
-			}
-
-			return funcaddress;
-		}
-		
-
-
-		//std::cout << "functionname: " << (char*)dllbase + namerva << std::endl;
-
-		//std::cout << "Funcaddress: " << funcaddress << std::endl;
-
-	}
-	return 0;
-}
-
-
-
-
-__forceinline ULONGLONG exportforwarderresolver(const char* forwarder) {
-
-	// forwarder points to NTDLL.RtlUserExitThread for example
-	char dllnametofind[128]{ 0 }, functionnametofind[128]{ 0 };
-	char* dllnametofindptr = &dllnametofind[0],
-		* functionnametofindptr = &functionnametofind[0];
-
-	char* funcaddressptr = (char*)forwarder;
-	while (true) {
-
-		if (*funcaddressptr == '.') {
-			break;
-		}
-
-		*dllnametofindptr = *funcaddressptr;
-
-		dllnametofindptr++;
-		funcaddressptr++;
-	}
-	funcaddressptr++;
-	*dllnametofindptr = '.'; dllnametofindptr++;
-	*dllnametofindptr = 'd'; dllnametofindptr++;
-	*dllnametofindptr = 'l'; dllnametofindptr++;
-	*dllnametofindptr = 'l'; dllnametofindptr++;
-
-
-	while (true) {
-
-		if (*funcaddressptr == 0) {
-			break;
-		}
-
-		*functionnametofindptr = *funcaddressptr;
-
-		functionnametofindptr++;
-		funcaddressptr++;
-	}
-
-	auto forwardedbase = getdllbase(&dllnametofind[0]);
-	if (forwardedbase) {
-		return getdllexportfunctionaddress(forwardedbase, &functionnametofind[0]);
-	}
-
-	return 0;
-}
-
-
 extern "C" void __declspec(dllexport) test() {
 
 	ULONGLONG loadlibraryaddress = 0;
@@ -271,12 +39,14 @@ extern "C" void __declspec(dllexport) test() {
 	ULONGLONG ourdllbase = 0;
 	ULONGLONG virtualprotectaddress = 0;
 	ULONGLONG exitthreadaddress = 0;
+	ULONGLONG addr1 = 0;
 	char dll1[] = { 'K','E','R','N','E','L','3','2','.','D','L','L',0 };
 	char func1[] = { 'L','O','A','d','L','i','b','r','a','r','y','A',0 };
 	char func2[] = { 'V','i','r','t','u','a','l','A','l','l','o','c',0 };
 	char func3[] = { 'G','e','t','P','r','o','c','A','d','d','r','e','s','s',0 };
 	char func4[] = { 'V','i','r','t','u','a','l','P','r','o','t','e','c','t',0 };
 	char func5[] = { 'E','x','i','t','T','h','r','e','a','d',0};
+	
 	ourdllbase = getdllbase(&dll1[0]);
 	
 	if (ourdllbase) {
@@ -285,12 +55,14 @@ extern "C" void __declspec(dllexport) test() {
 		virtualallocaddress = getdllexportfunctionaddress(ourdllbase, &func2[0]);
 		virtualprotectaddress = getdllexportfunctionaddress(ourdllbase, &func4[0]);
 		exitthreadaddress = getdllexportfunctionaddress(ourdllbase, &func5[0]);
+		
 	}
 
 	//((void(*)(int))exitthreadaddress)(0);
 
 	if (!loadlibraryaddress || !getprocaddressaddress
-		|| !virtualallocaddress || !virtualprotectaddress || !exitthreadaddress) {
+		|| !virtualallocaddress || !virtualprotectaddress || !exitthreadaddress 
+		) {
 		return;
 	}
 
