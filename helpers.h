@@ -90,6 +90,14 @@ __forceinline ULONGLONG getdllbase(const char* dll) {
 }
 
 
+__forceinline ULONGLONG getprocessbase() {
+
+	auto ppeb = __readgsqword(0x60);
+	ULONGLONG imagebaseaddress = *(ULONGLONG*)((char*)ppeb + 0x10);
+	return imagebaseaddress;
+
+}
+
 
 __forceinline ULONGLONG getdllexportfunctionaddress(ULONGLONG dllbase,
 	const char* functionname) {
