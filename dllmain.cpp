@@ -1,7 +1,7 @@
 // dllmain.cpp : Defines the entry point for the DLL application.
 #include "pch.h"
 #include <Windows.h>
-#include <iostream>
+#include <intrin.h>
 #include "helpers.h"
 
 
@@ -30,6 +30,13 @@ BOOL __declspec(dllexport) DllMain(HMODULE hModule,
 	return TRUE;
 }
 
+
+
+
+__declspec(noinline)
+ VOID* getreturnaddress() {
+	return	_ReturnAddress();
+}
 
 extern "C" void __declspec(dllexport) test() {
 
@@ -167,14 +174,22 @@ extern "C" void __declspec(dllexport) test() {
 	 }
 	 */
 
-	 auto mainaddr = (char*)&DllMain;
+	 auto mainaddr = (char*)getreturnaddress();
 	 while (true) {
+
+		 /*if (*mainaddr == 'M' && *(mainaddr + 1) == 'Z') {
+			 break;
+		 }
+
+		 mainaddr--;*/
 
 		 if (*mainaddr == 'M' && *(mainaddr + 1) == 'Z') {
 			 break;
 		 }
 
 		 mainaddr--;
+		 
+
 	 }
 
 	 ourdllbase = (ULONGLONG)(mainaddr);
@@ -398,6 +413,7 @@ extern "C" void __declspec(dllexport) test() {
 
 	((BOOL (*)(HMODULE,DWORD,LPVOID))
 		((char*)baseaddress + optionalheader->AddressOfEntryPoint))(NULL,DLL_PROCESS_ATTACH,NULL);
+	return;
 
 }
 
