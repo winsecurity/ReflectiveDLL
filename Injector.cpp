@@ -1,26 +1,4 @@
-#include "InjectionManager.h"
-#include <fstream>
-#include <thread>
-#include <chrono>
 
-  
-#include <iostream>
-
-
-#include "domainmanager.h"
-//#include <dsgetdc.h>
-
-#include <sysinfoapi.h>
-#include <vector>
-#include <expected>
-#include <Windows.h>
-#include <Winldap.h>
-#include <WinBer.h>
-
-#include "PEManager.h"
-#include "ProcessManager.h"
-
-//#pragma comment(lib,"NetApi32.lib")
 
 #include "InjectionManager.h"
 #include <fstream>
